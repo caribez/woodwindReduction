@@ -50,23 +50,6 @@ function clarinetOff()
 end function
 
 function handleNoteOn()
-	if ($dirtyCC = 1)
-		$i := 0
-		while ($i < 128)
-			if (%held_flute_notes[$i] = 1)
-				set_midi($FLUTE, $MIDI_COMMAND_NOTE_OFF, $i, 0)
-			end if
-			if (%held_oboe_notes[$i] = 1)
-				set_midi($OBOE, $MIDI_COMMAND_NOTE_OFF, $i, 0)
-			end if
-			if (%held_clarinet_notes[$i] = 1)
-				set_midi($OBOE, $MIDI_COMMAND_NOTE_OFF, $i, 0)
-			end if				
-			inc($i)			
-		end while
-		$dirtyCC := 0
-	end if
-
 	if ($cc104Value = $FLUTE) { only flute }
 		call fluteOn()
 	end if
@@ -99,44 +82,60 @@ function handleNoteOn()
 
 end function
 
-function handleNoteOff()
-	if ($cc104Value = $FLUTE) { only flute }
-		%held_flute_notes[$midi_byte_1] := 0
-        set_midi(0, $MIDI_COMMAND_NOTE_OFF, $midi_byte_1, $midi_byte_2)
-	end if
-	if ($cc104Value = $OBOE) { only oboe }
-		%held_oboe_notes[$midi_byte_1] := 0
-        set_midi(1, $MIDI_COMMAND_NOTE_OFF, $midi_byte_1, $midi_byte_2)
-	end if
-	if ($cc104Value = $CLARINET) { only clarinet }
-		%held_clarinet_notes[$midi_byte_1] := 0
-        set_midi(2, $MIDI_COMMAND_NOTE_OFF, $midi_byte_1, $midi_byte_2)
-	end if
-	if ($cc104Value = $FLUTE_AND_OBOE_UNIS) { flute + oboe }
-		%held_flute_notes[$midi_byte_1] := 0
-		%held_oboe_notes[$midi_byte_1] := 0
-        set_midi($FLUTE, $MIDI_COMMAND_NOTE_OFF, $midi_byte_1, $midi_byte_2)
-        set_midi($OBOE, $MIDI_COMMAND_NOTE_OFF, $midi_byte_1, $midi_byte_2)
-	end if
-	if ($cc104Value = $FLUTE_8VA_AND_OBOE) { flute 8va + oboe }
-		%held_flute_notes[$midi_byte_1 + 12] := 0
-		%held_oboe_notes[$midi_byte_1] := 0
-        set_midi($FLUTE, $MIDI_COMMAND_NOTE_OFF, $midi_byte_1 + 12, $midi_byte_2)
-        set_midi($OBOE, $MIDI_COMMAND_NOTE_OFF, $midi_byte_1, $midi_byte_2)
-	end if
-	if ($cc104Value = $FLUTE_AND_CLARINET_UNIS) { flute + clarinet }
-		%held_flute_notes[$midi_byte_1] := 0
-		%held_clarinet_notes[$midi_byte_1] := 0
-        set_midi($FLUTE, $MIDI_COMMAND_NOTE_OFF, $midi_byte_1, $midi_byte_2)
-        set_midi($CLARINET, $MIDI_COMMAND_NOTE_OFF, $midi_byte_1, $midi_byte_2)
-	end if
-	if ($cc104Value = $FLUTE_8VA_AND_CLARINET) { flute 8va + clarinet }
-		%held_flute_notes[$midi_byte_1 + 12] := 0
-		%held_clarinet_notes[$midi_byte_1] := 0
-        set_midi($FLUTE, $MIDI_COMMAND_NOTE_OFF, $midi_byte_1 + 12, $midi_byte_2)
-        set_midi($CLARINET, $MIDI_COMMAND_NOTE_OFF, $midi_byte_1, $midi_byte_2)
-	end if
+function resetPitches()
+	$i := 0
+	while ($i < 128)
+		if (%held_flute_notes[$i] = 1)
+			set_midi($FLUTE, $MIDI_COMMAND_NOTE_OFF, $i, 0)
+			%held_flute_notes[$i] := 0
+		end if
+		if (%held_oboe_notes[$i] = 1)
+			set_midi($OBOE, $MIDI_COMMAND_NOTE_OFF, $i, 0)
+			%held_oboe_notes[$i] := 0
+		end if
+		if (%held_clarinet_notes[$i] = 1)
+			set_midi($OBOE, $MIDI_COMMAND_NOTE_OFF, $i, 0)
+			%held_clarinet_notes[$i] := 0
+		end if				
+		inc($i)			
+	end while
+end function
 
+function handleNoteOff()
+	if ($dirtyCC = 1)
+		{ call resetPitches() }
+		$dirtyCC := 0
+	else
+		if ($cc104Value = $FLUTE) { only flute }
+			call fluteOff()
+		end if
+		if ($cc104Value = $OBOE) { only oboe }
+			call oboeOff()
+		end if
+		if ($cc104Value = $CLARINET) { only clarinet }
+			call clarinetOff()
+		end if
+		if ($cc104Value = $FLUTE_AND_OBOE_UNIS) { flute + oboe }
+			call fluteOff()
+			call oboeOff()
+		end if
+		if ($cc104Value = $FLUTE_8VA_AND_OBOE) { flute 8va + oboe }
+			$midi_byte_1 := $midi_byte_1 + 12
+			call fluteOff()		
+			$midi_byte_1 := $midi_byte_1 - 12 { reset value }
+			call oboeOff()
+		end if
+		if ($cc104Value = $FLUTE_AND_CLARINET_UNIS) { flute + clarinet }
+			call fluteOff()
+			call clarinetOff()
+		end if
+		if ($cc104Value = $FLUTE_8VA_AND_CLARINET) { flute 8va + clarinet }
+			$midi_byte_1 := $midi_byte_1 	+ 12
+			call fluteOff()		
+			$midi_byte_1 := $midi_byte_1 - 12 { reset value }
+			call clarinetOff()
+		end if
+	end if
 end function
 
 function handleInput() 
@@ -144,17 +143,20 @@ function handleInput()
 end function
 
 
+
+
+
 on midi_in
 	ignore_midi
     select ($MIDI_COMMAND)
 		case $MIDI_COMMAND_CC
 			if ($MIDI_BYTE_1 = 104)
-				$dirtyCC := 1
 				$cc104Value := $MIDI_BYTE_2
+				$dirtyCC := 1				
 			else
-				set_midi(0, $MIDI_COMMAND_CC, $MIDI_BYTE_1, $MIDI_BYTE_2)
-				set_midi(1, $MIDI_COMMAND_CC, $MIDI_BYTE_1, $MIDI_BYTE_2)
-				set_midi(2, $MIDI_COMMAND_CC, $MIDI_BYTE_1, $MIDI_BYTE_2)
+				set_midi($FLUTE, $MIDI_COMMAND_CC, $MIDI_BYTE_1, $MIDI_BYTE_2)
+				set_midi($OBOE, $MIDI_COMMAND_CC, $MIDI_BYTE_1, $MIDI_BYTE_2)
+				set_midi($CLARINET, $MIDI_COMMAND_CC, $MIDI_BYTE_1, $MIDI_BYTE_2)
 			end if
 		case $MIDI_COMMAND_NOTE_ON
 			$midi_byte_1 := $MIDI_BYTE_1
