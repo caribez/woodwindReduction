@@ -148,7 +148,7 @@ on midi_in
 	ignore_midi
     select ($MIDI_COMMAND)
 		case $MIDI_COMMAND_CC
-			if ($MIDI_BYTE_1 = 21)
+			if ($MIDI_BYTE_1 = 104)
 				$dirtyCC := 1
 				$cc104Value := $MIDI_BYTE_2
 			else
