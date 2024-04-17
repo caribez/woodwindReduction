@@ -1,10 +1,11 @@
 on init
-    declare $note_delay_ms := 10            { Delay in milliseconds }
-    declare $cc104Value := 0
+	declare $note_delay_ms := 10            { Delay in milliseconds }
+	declare $cc104Value := 0
 	declare $dirtyCC := 0
 	declare $last_note := 0
 	declare $midi_byte_1 := 0
 	declare $midi_byte_2 := 0
+	declare %key_pressed[128]
 	declare %held_flute_notes[128]
 	declare %held_oboe_notes[128]
 	declare %held_clarinet_notes[128]
@@ -165,6 +166,7 @@ on midi_in
 
 	if ($MIDI_COMMAND = $MIDI_COMMAND_NOTE_ON)
 		wait($note_delay_ms)
+		%key_pressed[%MIDI_BYTE_1] := 1
 		$midi_byte_1 := $MIDI_BYTE_1
 		$midi_byte_2 := $MIDI_BYTE_2
 		$last_note := $MIDI_BYTE_1
@@ -173,6 +175,7 @@ on midi_in
 
     if ($MIDI_COMMAND = $MIDI_COMMAND_NOTE_OFF)
 		wait($note_delay_ms)
+		%key_pressed[%MIDI_BYTE_1] := 0
 		$midi_byte_1 := $MIDI_BYTE_1
 		$midi_byte_2 := $MIDI_BYTE_2
 		call handleNoteOff()
